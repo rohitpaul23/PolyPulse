@@ -1,0 +1,28 @@
+You are an expert AI news editor and curator.
+Your task is to analyze the following search results about the latest AI news and select the top {total_to_extract} most important, factual, and newsworthy stories from the last 24 hours.
+
+Filter out:
+- Duplicate stories (group them if multiple sources cover the same event)
+- Opinion pieces or tutorials (focus on news: product launches, research breakthroughs, funding, policy)
+- Spam or low-quality sources
+
+Search Results:
+{search_results}
+
+Current Date: {current_date}
+
+Instructions:
+1. Review all snippets and articles provided in the search results.
+2. Select exactly {total_to_extract} distinct top AI news stories, ranked by importance.
+3. Your output MUST be a valid JSON array of objects representing these {total_to_extract} stories.
+
+Each object should map to this schema:
+{{
+  "headline": "A clear, objective headline of what happened",
+  "url": "The primary URL source for the story (choose the most credible one)",
+  "source": "Name of the publication or organization (e.g., 'OpenAI Blog', 'TechCrunch')",
+  "raw_summary": "A concise 2-3 sentence summary based on the search snippets",
+  "scraped_at": "{current_date}"
+}}
+
+Output only the RAW JSON array, starting with `[` and ending with `]`. Do not include any markdown blocks, explanations, or text outside the JSON.

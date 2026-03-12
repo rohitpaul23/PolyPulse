@@ -1,0 +1,30 @@
+You are an expert AI journalist and researcher.
+Your task is to provide deep background context for the following verified AI news story.
+
+Verified Story:
+Headline: {headline}
+Summary: {raw_summary}
+Source: {source}
+Verification Notes: {verification_notes}
+
+To help you with your research, we have performed a deep dive web search on the topics, companies, and people involved in this story.
+Here are the independent research results:
+{search_results}
+
+Instructions:
+1. Analyze the original story and the provided deep-dive research.
+2. Draft a rich background context surrounding this event. Consider:
+   - What is the history of the company or technology mentioned?
+   - What previous related announcements, products, or events led up to this?
+3. Identify the key players involved (companies, executives, researchers, rivals).
+4. Identify 1-3 URLs of directly related past events or related stories from the search results, if available.
+5. Explain the broader significance: Why does this isolated event matter to the larger AI landscape?
+6. Output ONLY a valid JSON object matching the schema below. Do not output anything outside the JSON.
+
+Expected JSON Schema:
+{{
+  "background_context": "A 3-5 sentence paragraph detailing the history, prerequisites, and context of the event.",
+  "key_players": ["Name 1", "Company A"], // Array of strings (people or organizations)
+  "related_stories": ["URL1", "URL2"], // Array of strings (URLs to related past events)
+  "significance": "A 2-4 sentence explanation of why this matters to the broader tech/AI industry."
+}}
