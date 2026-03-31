@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PolyPulse | AI News Agent Dashboard</title>
+    <!-- Google Fonts for Modern Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Configuration -->
+        <aside class="sidebar glass-panel">
+            <div class="logo-area">
+                <div class="logo-icon">🤖</div>
+                <h1>PolyPulse</h1>
+            </div>
+            
+            <form id="config-form" class="config-form">
+                <div class="form-group">
+                    <label for="topics">Topics (Comma separated)</label>
+                    <input type="text" id="topics" name="topics" class="glass-input" value="AI News, Artificial Intelligence" placeholder="e.g. LLMs, AI hardware">
+                </div>
+
+                <div class="form-group">
+                    <label for="timeframe">Timeframe</label>
+                    <select id="timeframe" name="timeframe" class="glass-input">
+                        <option value="today">Today</option>
+                        <option value="this week">This Week</option>
+                        <option value="this month">This Month</option>
+                        <option value="this year">This Year</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="stories">Number of Stories</label>
+                    <input type="number" id="stories" name="stories" class="glass-input" value="5" min="1" max="25">
+                </div>
+
+                <div class="form-group check-group-container">
+                    <label>Publish Destinations</label>
+                    <div class="checkbox-group">
+                        <label class="custom-checkbox">
+                            <input type="checkbox" id="post_x" name="post_x" checked>
+                            <span class="checkmark"></span>
+                            X (Twitter) Thread
+                        </label>
+                        <label class="custom-checkbox">
+                            <input type="checkbox" id="post_linkedin" name="post_linkedin" checked>
+                            <span class="checkmark"></span>
+                            LinkedIn Snippet
+                        </label>
+                        <label class="custom-checkbox">
+                            <input type="checkbox" id="post_blog" name="post_blog" checked>
+                            <span class="checkmark"></span>
+                            Hashnode Blog Post
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary" id="run-btn">
+                    <span class="spinner" id="btn-spinner" style="display: none;"></span>
+                    <span id="btn-text">Initialize Swarm</span>
+                </button>
+            </form>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Terminal Log Window -->
+            <section class="log-section glass-panel">
+                <div class="panel-header">
+                    <h2>Terminal Feed</h2>
+                    <div class="status-indicator">
+                        <div class="dot" id="status-dot"></div>
+                        <span id="status-text">Idle</span>
+                    </div>
+                </div>
+                <div class="terminal-window" id="terminal-window">
+                    <div class="log-line text-muted">Awaiting initialization...</div>
+                </div>
+            </section>
+
+            <!-- Results Output Window -->
+            <section class="results-section glass-panel">
+                <div class="panel-header">
+                    <h2>Generated Assets</h2>
+                </div>
+                
+                <div id="results-container" class="results-container" style="display: none;">
+                    
+                    <!-- Published Links Grid -->
+                    <div class="links-grid" id="links-grid">
+                        <!-- Populated dynamically via JS if published_urls exist -->
+                    </div>
+
+                    <!-- Article Body Preview container -->
+                    <div class="article-preview-container">
+                        <h3 class="preview-title">Markdown Preview</h3>
+                        <div class="article-preview" id="article-preview">
+                            <!-- Populated with markdown logic -->
+                        </div>
+                    </div>
+
+                </div>
+                
+                <div class="empty-state" id="results-empty">
+                    <span>Results will appear here once the swarm completes its pipeline.</span>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Simple JS Markdown parser library for preview (marked) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -24,10 +24,14 @@ def run_scraper(state: NewsAgentState) -> NewsAgentState:
     current_date = datetime.now().isoformat()
     today_str = datetime.now().strftime("%Y-%m-%d")
     
+    '''
     queries = [
         f"AI news today {today_str}",
         f"artificial intelligence research breakthrough {today_str}"
     ]
+    '''
+    timeframe_str = getattr(state, "timeframe", "today")
+    queries = [f"{topic} {timeframe_str} {today_str}" for topic in state.topics]
     
     all_results = []
     seen_urls = set()
@@ -73,34 +77,65 @@ def run_scraper(state: NewsAgentState) -> NewsAgentState:
     )
 
     print(f"Analyzing {len(all_results)} valid search results with LLM to extract top {total_to_extract} stories...")
-    try:
-        llm = ChatGroq(temperature=0, model_name="llama-3.3-70b-versatile")
-        response = llm.invoke(filled_prompt)
-        content = response.content
-        
-        # Clean JSON blocks if the model wrapped it
-        content = content.strip()
-        if content.startswith("```json"):
-            content = content[7:-3].strip()
-        elif content.startswith("```"):
-            content = content[3:-3].strip()
-
-        stories_json = json.loads(content)
-        
-        raw_stories = []
-        for s in stories_json:
-            # Handle potential missing keys gracefully, falling back to scraped_at
-            if 'scraped_at' not in s:
-                s['scraped_at'] = current_date
-            raw_stories.append(RawStory(**s))
+    
+    import time
+    llms = [
+        ("llama-3.3", ChatGroq(temperature=0, model_name="llama-3.3-70b-versatile")),
+        ("llama-3.1", ChatGroq(temperature=0, model_name="llama-3.1-8b-instant"))
+    ]
+    
+    max_retries = 3
+    success = False
+    
+    for model_name, current_llm in llms:
+        if success:
+            break
             
-        print(f"Found {len(raw_stories)} raw stories.")
-        state.raw_stories = raw_stories
-        state.current_stage = "scraper"
-        
-    except Exception as e:
-        print(f"Scraper agent LLM error: {e}")
-        state.error_log.append(f"Scraper LLM error: {e}")
+        for attempt in range(max_retries):
+            try:
+                response = current_llm.invoke(filled_prompt)
+                content = response.content.strip()
+                
+                # Clean JSON blocks
+                if content.startswith("```json"):
+                    content = content[7:]
+                if content.startswith("```"):
+                    content = content[3:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                    
+                content = content.strip()
+
+                stories_json = json.loads(content)
+                
+                raw_stories = []
+                for s in stories_json:
+                    if 'scraped_at' not in s:
+                        s['scraped_at'] = current_date
+                    raw_stories.append(RawStory(**s))
+                    
+                print(f"Found {len(raw_stories)} raw stories.")
+                state.raw_stories = raw_stories
+                state.current_stage = "scraper"
+                success = True
+                break
+                
+            except json.JSONDecodeError as e:
+                print(f"  [Warning] Failed to parse JSON using {model_name}: {e}")
+                break  # Normal loop exit -> try next model
+            except Exception as e:
+                if attempt < max_retries - 1 and "429" in str(e):
+                    backoff = (attempt + 1) * 3
+                    print(f"  [Rate Limit] TPM exceeded for {model_name}. Retrying in {backoff}s...")
+                    time.sleep(backoff)
+                else:
+                    print(f"  [Error] {model_name} failed: {e}")
+                    break
+                    
+    if not success:
+        error_msg = "All models and retries failed to extract stories."
+        print(f"Scraper agent LLM error: {error_msg}")
+        state.error_log.append(f"Scraper LLM error: {error_msg}")
 
     return state
 

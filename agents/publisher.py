@@ -433,11 +433,12 @@ def run_publisher(state: NewsAgentState) -> NewsAgentState:
     save_to_files(state)
 
 
-    to_be_published = True
-    if to_be_published:
+    if state.post_to_blog:
         # 2. Publish to Hashnode — get live URL for X thread final tweet
-        print("\n[Step 2] Publishing to Hashnode...")
+        print("\\n[Step 2] Publishing to Hashnode...")
         hashnode_url = publish_hashnode(state.full_blog_post, state.x_thread_full)
+        if hashnode_url:
+            state.published_urls["blog"] = hashnode_url
 
         # 3. Inject Hashnode URL into the final tweet if we got one
         tweets = list(state.x_thread_full or [])
@@ -445,23 +446,33 @@ def run_publisher(state: NewsAgentState) -> NewsAgentState:
             last = tweets[-1]
             # Only inject if URL not already present
             if "http" not in last:
-                tweets[-1] = last.rstrip() + f"\n\n🔗 {hashnode_url}"
+                tweets[-1] = last.rstrip() + f"\\n\\n🔗 {hashnode_url}"
                 print(f"  [Publisher] Injected Hashnode URL into final tweet.")
     else:
+        print("\\n[Step 2] Skipping Hashnode/Blog...")
         tweets = list(state.x_thread_full or [])
 
     # 4. Post X thread
-    to_be_posted_X = False
-    if to_be_posted_X:  
-        print("\n[Step 4] Posting to X / Twitter...")
+    if state.post_to_x:  
+        print("\\n[Step 4] Posting to X / Twitter...")
         x_success = post_x_thread(tweets)
+        if x_success:
+            state.published_to_x = True
+            state.published_urls["x"] = "https://x.com" # Placeholder since original doesn't return URL
     else:
+        print("\\n[Step 4] Skipping X / Twitter...")
         x_success = False
 
     # 5. Post LinkedIn
-    print("\n[Step 5] Posting to LinkedIn...")
-    print("  [LinkedIn] Skipped by user request.")
-    li_success = False
+    if state.post_to_linkedin:
+        print("\\n[Step 5] Posting to LinkedIn...")
+        li_success = post_linkedin(state.linkedin_post)
+        if li_success:
+            state.published_to_linkedin = True
+            state.published_urls["linkedin"] = "https://linkedin.com" # Placeholder since original doesn't return URL
+    else:
+        print("\\n[Step 5] Skipping LinkedIn...")
+        li_success = False
 
     # Summary
     print("\n--- PUBLISHER SUMMARY ---")

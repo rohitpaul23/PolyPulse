@@ -37,6 +37,11 @@ class NewsAgentState(BaseModel):
     
     # Configuration
     target_stories: int = 10
+    topics: list[str] = Field(default_factory=lambda: ["AI news", "artificial intelligence research breakthrough"])
+    timeframe: str = "today"
+    post_to_x: bool = True
+    post_to_linkedin: bool = True
+    post_to_blog: bool = True
     
     # Pipeline stage tracking
     current_stage: str = "init"
@@ -56,3 +61,4 @@ class NewsAgentState(BaseModel):
     # Publishing status
     published_to_x: bool = False
     published_to_linkedin: bool = False
+    published_urls: dict[str, str] = Field(default_factory=dict)

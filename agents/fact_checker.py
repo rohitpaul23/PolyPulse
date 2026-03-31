@@ -30,8 +30,13 @@ def run_fact_checker(state: NewsAgentState) -> NewsAgentState:
     verified_stories = []
     
     # Initialize the LLM (Using Groq since Google API is hitting 404 access restrictions)
+    import time
+    import re
     try:
-        llm = ChatGroq(temperature=0, model_name="llama-3.3-70b-versatile")
+        llms = [
+            ("llama-3.3", ChatGroq(temperature=0, model_name="llama-3.3-70b-versatile")),
+            ("llama-3.1", ChatGroq(temperature=0, model_name="llama-3.1-8b-instant"))
+        ]
     except Exception as e:
         error_msg = f"Failed to initialize Groq for fact-checking: {e}"
         print(error_msg)
@@ -65,52 +70,82 @@ def run_fact_checker(state: NewsAgentState) -> NewsAgentState:
                            .replace("{current_date}", current_date)
         )
         
-        try:
-            response = llm.invoke(filled_prompt)
-            content = response.content.strip()
-            
-            # Clean JSON blocks
-            if content.startswith("```json"):
-                content = content[7:-3].strip()
-            elif content.startswith("```"):
-                content = content[3:-3].strip()
+        max_retries = 3
+        success = False
+        
+        for model_name, current_llm in llms:
+            if success:
+                break
                 
-            verification_data = json.loads(content)
-            
-            # Safety check on confidence score threshold overrides
-            v_status = verification_data.get("verification_status", "pending").lower()
-            conf_score = float(verification_data.get("confidence_score", 0.0))
-            
-            if conf_score >= 0.7:
-                v_status = "verified"
-            elif 0.4 <= conf_score < 0.7:
-                v_status = "unverified"
-            else:
-                v_status = "disputed"
-            
-            # 3. Create VerifiedStory object
-            v_story = VerifiedStory(
-                headline=story.headline,
-                url=story.url,
-                source=story.source,
-                raw_summary=story.raw_summary,
-                scraped_at=story.scraped_at,
-                verification_status=v_status,
-                confidence_score=conf_score,
-                supporting_sources=verification_data.get("supporting_sources", []),
-                verification_notes=verification_data.get("verification_notes", "")
-            )
-            
-            # 4. Filter logic: Drop disputed stories
-            print(f"  -> Status: {v_status.upper()} (Score: {conf_score})")
-            if v_status in ["verified", "unverified"]:
-                verified_stories.append(v_story)
-            else:
-                print(f"  -> DROPPED: Story disputed.")
-                
-        except Exception as e:
-            print(f"  -> LLM Error verifying story: {e}")
-            state.error_log.append(f"FactChecker LLM error on story '{story.headline}': {e}")
+            for attempt in range(max_retries):
+                try:
+                    response = current_llm.invoke(filled_prompt)
+                    content = response.content.strip()
+                    
+                    # Remove think blocks
+                    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
+                    
+                    # Clean JSON blocks
+                    if content.startswith("```json"):
+                        content = content[7:]
+                    if content.startswith("```"):
+                        content = content[3:]
+                    if content.endswith("```"):
+                        content = content[:-3]
+                        
+                    content = content.strip()
+                    verification_data = json.loads(content)
+                    
+                    # Safety check on confidence score threshold overrides
+                    v_status = verification_data.get("verification_status", "pending").lower()
+                    conf_score = float(verification_data.get("confidence_score", 0.0))
+                    
+                    if conf_score >= 0.7:
+                        v_status = "verified"
+                    elif 0.4 <= conf_score < 0.7:
+                        v_status = "unverified"
+                    else:
+                        v_status = "disputed"
+                    
+                    # 3. Create VerifiedStory object
+                    v_story = VerifiedStory(
+                        headline=story.headline,
+                        url=story.url,
+                        source=story.source,
+                        raw_summary=story.raw_summary,
+                        scraped_at=story.scraped_at,
+                        verification_status=v_status,
+                        confidence_score=conf_score,
+                        supporting_sources=verification_data.get("supporting_sources", []),
+                        verification_notes=verification_data.get("verification_notes", "")
+                    )
+                    
+                    # 4. Filter logic: Drop disputed stories
+                    print(f"  -> Status: {v_status.upper()} (Score: {conf_score})")
+                    if v_status in ["verified", "unverified"]:
+                        verified_stories.append(v_story)
+                    else:
+                        print(f"  -> DROPPED: Story disputed.")
+                        
+                    success = True
+                    break
+                    
+                except json.JSONDecodeError as e:
+                    print(f"  [Warning] Failed to parse JSON using {model_name}: {e}")
+                    break
+                except Exception as e:
+                    if attempt < max_retries - 1 and "429" in str(e):
+                        backoff = (attempt + 1) * 3
+                        print(f"  [Rate Limit] TPM exceeded for {model_name}. Retrying in {backoff}s...")
+                        time.sleep(backoff)
+                    else:
+                        print(f"  [Error] {model_name} failed: {e}")
+                        break
+                        
+        if not success:
+            error_msg = "All models and retries failed to verify story."
+            print(f"  -> LLM Error verifying story: {error_msg}")
+            state.error_log.append(f"FactChecker LLM error on story '{story.headline}': {error_msg}")
             
     # 5. Sort by confidence score (highest first) and truncate to target
     verified_stories.sort(key=lambda s: s.confidence_score, reverse=True)
